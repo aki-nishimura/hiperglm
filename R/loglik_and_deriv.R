@@ -1,3 +1,18 @@
+calc_loglik <- function(model, reg_coef, ...) {
+  UseMethod("calc_loglik")
+}
+
+calc_loglink_deriv <- function(model, ...) {
+  UseMethod("calc_loglink_deriv")
+}
+
+calc_grad <- function(model, reg_coef, ...) {
+  loglink_grad <- calc_loglink_deriv(model, reg_coef, order = 1)
+  grad <- t(model$design) %*% loglink_grad
+  grad <- as.vector(grad)
+  return(grad)
+}
+
 calc_linear_loglik <- function(reg_coef, design, outcome, noise_var = 1) {
   predicted_val <- design %*% reg_coef
   loglik <- - 0.5 * sum((outcome - predicted_val)^2) / noise_var
