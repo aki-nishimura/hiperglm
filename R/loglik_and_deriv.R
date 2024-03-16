@@ -80,6 +80,36 @@ calc_loglink_deriv.logit_model <- function(model, reg_coef, ...) {
   return(deriv)
 }
 
+calc_loglik.poisson_model <- function(model, reg_coef, ...) {
+  
+  design <- model$design
+  outcome <- model$outcome
+  
+  log_mu <- design %*% reg_coef
+  loglik <- sum(outcome * log_mu - exp(log_mu) - lgamma(outcome + 1))
+  return(loglik)
+}
+
+calc_loglink_deriv.poisson_model <- function(model, reg_coef, ...) {
+  
+  args <- list(...)
+  design <- model$design
+  outcome <- model$outcome
+  order <- if ("order" %in% names(args)) args$order else 1
+  
+  log_mu <- as.vector(design %*% reg_coef)
+  predicted_outcome <- exp(log_mu)
+  if (order == 1) {
+    deriv <- outcome - predicted_outcome
+  } else if (order == 2) {
+    deriv <- predicted_outcome
+  } else {
+    stop("3rd+ order derivative calculations are not supported")
+  }
+  deriv <- as.vector(deriv)
+  return(deriv)
+}
+
 calc_logit_hessian <- function(model, reg_coef) {
   weight <- calc_loglink_deriv(model, reg_coef, order = 2)
   hess <- - t(model$design) %*% (outer(weight, rep(1, ncol(model$design))) * model$design)
