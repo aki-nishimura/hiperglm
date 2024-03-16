@@ -18,7 +18,7 @@ new_regression_model <- function(design, outcome, model_name) {
 
 find_mle <- function(model, option) {
   if (is.null(option$mle_solver)) {
-    if (model$name == 'linear') {
+    if (model$name == "linear") {
       result <- solve_via_least_sq(model)
     } else {
       result <- solve_via_newton(
@@ -37,9 +37,10 @@ solve_via_least_sq <- function(model) {
   ls_result <- solve_least_sq_via_qr(design, outcome)
   mle_coef <- ls_result$solution
   noise_var <- mean((outcome - design %*% mle_coef)^2)
-  n_obs <- nrow(design); n_pred <- ncol(design)
-  noise_var <- noise_var / (1 - n_pred / n_obs) 
-    # Use the same nearly-unbiased estimator as in `stats::lm`
+  n_obs <- nrow(design)
+  n_pred <- ncol(design)
+  noise_var <- noise_var / (1 - n_pred / n_obs)
+  # Use the same nearly-unbiased estimator as in `stats::lm`
   cov_est <- noise_var * invert_gram_mat_from_qr(ls_result$R)
   return(list(coef = mle_coef, cov_est = cov_est))
 }
@@ -47,9 +48,15 @@ solve_via_least_sq <- function(model) {
 solve_via_newton <- function(model, n_max_iter, rel_tol, abs_tol) {
   design <- model$design
   outcome <- model$outcome
-  if (is.null(n_max_iter)) { n_max_iter <- 25L }
-  if (is.null(rel_tol)) { rel_tol <- 1e-6 }
-  if (is.null(abs_tol)) { abs_tol <- 1e-6 }
+  if (is.null(n_max_iter)) {
+    n_max_iter <- 25L
+  }
+  if (is.null(rel_tol)) {
+    rel_tol <- 1e-6
+  }
+  if (is.null(abs_tol)) {
+    abs_tol <- 1e-6
+  }
   coef_est <- rep(0, ncol(design))
   n_iter <- 0L
   max_iter_reached <- FALSE
@@ -68,32 +75,31 @@ solve_via_newton <- function(model, n_max_iter, rel_tol, abs_tol) {
   if (max_iter_reached && !converged) {
     warning("Newton's method did not converge. The estimates may be meaningless.")
   }
-  cov_est <- - calc_logit_hessian_inverse(model, coef_est)
+  cov_est <- -calc_logit_hessian_inverse(model, coef_est)
   return(list(
-    coef = coef_est, cov = cov_est, 
+    coef = coef_est, cov = cov_est,
     converged = converged, n_iter = n_iter
   ))
 }
 
 take_one_newton_step <- function(
-    model, coef_est, solver = "weighted-leqst-sq"
-) {
+    model, coef_est, solver = "weighted-leqst-sq") {
   design <- model$design
   if (solver == "weighted-leqst-sq") {
-    loglink_grad <- 
+    loglink_grad <-
       calc_loglink_deriv(model, coef_est, order = 1)
     weight <- calc_loglink_deriv(model, coef_est, order = 2)
     if (any(weight == 0)) {
       stop("Exact 0 or 1 found in predicted probability while solving for MLE.")
-        # TODO: pursue alternative path forward in this case. Maybe just fall 
-        # back on a Newton step with explicit computation of weighted Hessian. 
+      # TODO: pursue alternative path forward in this case. Maybe just fall
+      # back on a Newton step with explicit computation of weighted Hessian.
     }
     ls_target_vec <- loglink_grad / weight
     coef_update <- solve_least_sq_via_qr(design, ls_target_vec, weight)$solution
   } else {
     grad <- calc_grad(model, coef_est)
     hess <- calc_logit_hessian(model, coef_est)
-    coef_update <- - solve(hess, grad)
+    coef_update <- -solve(hess, grad)
   }
   coef_est <- coef_est + coef_update
   return(coef_est = coef_est)
@@ -101,16 +107,17 @@ take_one_newton_step <- function(
 
 solve_via_optim <- function(model, method) {
   init_coef <- rep(0, ncol(model$design))
-  
-  obj_fn <- function (coef) {
-    calc_loglik(model, coef) 
+
+  obj_fn <- function(coef) {
+    calc_loglik(model, coef)
   }
-  obj_grad <- function (coef) {
+  obj_grad <- function(coef) {
     calc_grad(model, coef)
   }
-  
+
   optim_result <- stats::optim(
-    init_coef, obj_fn, obj_grad, method = method,
+    init_coef, obj_fn, obj_grad,
+    method = method,
     control = list(fnscale = -1) # Maximize the function
   )
   optim_converged <- (optim_result$convergence == 0L)
