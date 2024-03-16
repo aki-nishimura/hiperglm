@@ -12,14 +12,14 @@ are_all_close <- function(v, w, abs_tol = 1e-6, rel_tol = 1e-6) {
   return(are_all_within_atol && are_all_within_rtol)
 }
 
-approx_grad_via_finite_diff <- function(func, x, dx = 1e-6) {
+approx_grad_via_finite_diff <- function(model, x, dx = 1e-6) {
   numerical_grad <- rep(0, length(x))
   for (i in 1:length(x)) {
     x_plus <- x 
     x_plus[i] <- x[i] + dx
     x_minus <- x
     x_minus[i] <- x[i] - dx
-    numerical_grad[i] <- (func(x_plus) - func(x_minus)) / (2 * dx)
+    numerical_grad[i] <- (calc_loglik(model, x_plus) - calc_loglik(model,x_minus)) / (2 * dx)
   }
   return(numerical_grad)
 }
