@@ -13,22 +13,23 @@ calc_grad <- function(model, reg_coef, ...) {
   return(grad)
 }
 
-calc_linear_loglik <- function(reg_coef, design, outcome, noise_var = 1) {
+calc_loglik.linear_model <- function(model, reg_coef, ...) {
+  args <- list(...)
+  noise_var <- if ("noise_var" %in% names(args)) args$noise_var else 1
+  
+  design <- model$design
+  outcome <- model$outcome
+  
   predicted_val <- design %*% reg_coef
   loglik <- - 0.5 * sum((outcome - predicted_val)^2) / noise_var
   return(loglik)
 }
 
-calc_linear_grad <- function(reg_coef, design, outcome, noise_var = 1) {
-  predicted_val <- design %*% reg_coef
-  grad <- t(design) %*% (outcome - predicted_val) / noise_var
-  grad <- as.vector(grad)
-  return(grad)
-}
-
-calc_logit_loglik <- function(
-    reg_coef, design, outcome
-) {
+calc_loglik.logit_model <- function(model, reg_coef, ...) {
+  
+  design <- model$design
+  outcome <- model$outcome
+  
   if (is.list(outcome)) {
     n_success <- outcome$n_success
     n_trial <- outcome$n_trial
@@ -36,20 +37,28 @@ calc_logit_loglik <- function(
     n_success <- outcome
     n_trial <- rep(1, length(n_success)) # Assume binary outcome
   }
+  
   logit_prob <- design %*% reg_coef
   loglik <- sum(n_success * logit_prob - n_trial * log(1 + exp(logit_prob)))
-    # TODO: improve numerical stability for logit_prob >> 1
   return(loglik)
 }
 
-calc_logit_grad <- function(reg_coef, design, outcome) {
-  loglink_grad <- calc_logit_loglink_deriv(reg_coef, design, outcome, order = 1)
-  grad <- t(design) %*% loglink_grad
-  grad <- as.vector(grad)
-  return(grad)
+calc_loglink_deriv.linear_model <- function(model, reg_coef, ...) {
+  args <- list(...)
+  noise_var <- if ("noise_var" %in% names(args)) args$noise_var else 1
+  predicted_val <- model$design %*% reg_coef
+  deriv <- (model$outcome - predicted_val) / noise_var
+  deriv <- as.vector(deriv)
+  return(deriv)
 }
 
-calc_logit_loglink_deriv <- function(reg_coef, design, outcome, order) {
+calc_loglink_deriv.logit_model <- function(model, reg_coef, ...) {
+  
+  args <- list(...)
+  design <- model$design
+  outcome <- model$outcome
+  order <- if ("order" %in% names(args)) args$order else 1
+  
   if (is.list(outcome)) {
     n_success <- outcome$n_success
     n_trial <- outcome$n_trial
@@ -57,6 +66,7 @@ calc_logit_loglink_deriv <- function(reg_coef, design, outcome, order) {
     n_success <- outcome
     n_trial <- rep(1, length(n_success)) # Assume binary outcome
   }
+  
   logit_prob <- as.vector(design %*% reg_coef)
   predicted_prob <- 1 / (1 + exp(-logit_prob))
   if (order == 1) {
@@ -70,15 +80,15 @@ calc_logit_loglink_deriv <- function(reg_coef, design, outcome, order) {
   return(deriv)
 }
 
-calc_logit_hessian <- function(reg_coef, design, outcome) {
-  weight <- calc_logit_loglink_deriv(reg_coef, design, outcome, order = 2)
-  hess <- - t(design) %*% (outer(weight, rep(1, ncol(design))) * design)
+calc_logit_hessian <- function(model, reg_coef) {
+  weight <- calc_loglink_deriv(model, reg_coef, order = 2)
+  hess <- - t(model$design) %*% (outer(weight, rep(1, ncol(model$design))) * model$design)
   return(hess)
 }
 
-calc_logit_hessian_inverse <- function(reg_coef, design, outcome) {
-  weight <- calc_logit_loglink_deriv(reg_coef, design, outcome, order = 2)
-  sqrt_weighted_design <- outer(sqrt(weight), rep(1, ncol(design))) * design
+calc_logit_hessian_inverse <- function(model, reg_coef) {
+  weight <- calc_loglink_deriv(model, reg_coef, order = 2)
+  sqrt_weighted_design <- outer(sqrt(weight), rep(1, ncol(model$design))) * model$design
   R <- qr_wrapper(sqrt_weighted_design)$R
   inverse <- - invert_gram_mat_from_qr(R)
   return(inverse)
