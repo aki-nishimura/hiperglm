@@ -59,7 +59,7 @@ simulate_data <- function(
     noise_magnitude <- sqrt(var(expected_mean) / signal_to_noise^2)
     noise <- noise_magnitude * rnorm(n_obs)
     outcome <- expected_mean + noise 
-  } else {
+  } else if (model_name == 'logit') {
     n_trial <- option$n_trial
     prob <- 1 / (1 + exp(-expected_mean))
     # Object type of `outcome` returned by this function is variable. One should 
@@ -71,6 +71,8 @@ simulate_data <- function(
       n_success <- rbinom(n_obs, n_trial, prob)
       outcome <- list(n_success = n_success, n_trial = n_trial)
     }
+  } else {
+    outcome <- rpois(n_obs, exp(expected_mean))
   }
   return(list(design = design, outcome = outcome, coef_true = coef_true))
 }
